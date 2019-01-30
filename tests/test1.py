@@ -11,8 +11,9 @@ query = data[1000:1100]
 
 a = sf.SubsequenceFinder()
 
-locs, dists = a.search(query, data, distanceLimit=5, sizeOfWarpingWindow=0.05)
+locs, dists = a.search(query, data, distanceLimit=0.01, sizeOfWarpingWindow=0.05)
 
-print(locs, dists)
+print('Locations:', list(locs))
+print('Distances:', list(dists))
 
 
