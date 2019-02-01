@@ -5,7 +5,7 @@ cimport numpy as np
 cdef extern from "SubsequenceFinder.h":
     cdef cppclass SubsequenceFinder:
         SubsequenceFinder()
-        void search(np.float32_t*, int, np.float32_t*, int, float, float)
+        void search(np.float32_t*, int, np.float32_t*, int, float, float, char*)
         int getResultsLength();
         void getResults(np.int32_t*, np.float32_t*)
 
@@ -25,8 +25,8 @@ cdef class PySubsequenceFinder:
     def __dealloc__(self):
         del self.thisptr
 
-    def search(self, np.ndarray[ndim=1, dtype=np.float32_t] query, np.ndarray[ndim=1, dtype=np.float32_t] data, float distanceLimit, float sizeOfWarpingWindows):
-        self.thisptr.search(&query[0], len(query), &data[0], len(data), distanceLimit, sizeOfWarpingWindows)
+    def search(self, np.ndarray[ndim=1, dtype=np.float32_t] query, np.ndarray[ndim=1, dtype=np.float32_t] data, float distanceLimit, float sizeOfWarpingWindows, distanceMethod):
+        self.thisptr.search(&query[0], len(query), &data[0], len(data), distanceLimit, sizeOfWarpingWindows, distanceMethod.encode())
 
         resultsLength = self.thisptr.getResultsLength()
 

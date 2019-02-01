@@ -13,10 +13,10 @@ class SubsequenceFinder():
         self.distances = None
 
 
-    def search(self, query, data, distanceLimit, sizeOfWarpingWindow=0.05):
+    def search(self, query, data, distanceLimit, sizeOfWarpingWindow=0.05, distanceMethod='Euclidean'):
         query = query.astype(np.float32)
         data = data.astype(np.float32)
 
-        self.locations, self.distances = self.finder.search(query, data, distanceLimit, sizeOfWarpingWindow)
+        self.locations, self.distances = self.finder.search(query, data, distanceLimit, sizeOfWarpingWindow, distanceMethod)
 
         return self.locations, self.distances

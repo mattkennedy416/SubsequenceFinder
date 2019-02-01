@@ -5,10 +5,11 @@
 #include <time.h>
 #include <iostream>
 #include <vector> // NEW ADDITION
+#include <string.h>
 
 #define min(x,y) ((x)<(y)?(x):(y))
 #define max(x,y) ((x)>(y)?(x):(y))
-#define dist(x,y) ((x-y)*(x-y))
+//#define dist(x,y) ((x-y)*(x-y))
 
 
 
@@ -24,6 +25,20 @@ SubsequenceFinder::~SubsequenceFinder()
 {
 }
 
+
+
+float dist_Euclidean(float x, float y)
+{
+	// this is the original "standard" distance used in DTW
+	return ((x-y)*(x-y));
+}
+
+
+float dist_Correlation(float x, float y)
+{
+
+
+}
 
 
 
@@ -158,44 +173,44 @@ void SubsequenceFinder::lower_upper_lemire(double *t, int len, int r, double *l,
 /// However, because of z-normalization the top and bottom cannot give siginifant benefits.
 /// And using the first and last points can be computed in constant time.
 /// The prunning power of LB_Kim is non-trivial, especially when the query is not long, say in length 128.
-double SubsequenceFinder::lb_kim_hierarchy(double *t, double *q, int j, int len, double mean, double std, double bsf = INF)
+double SubsequenceFinder::lb_kim_hierarchy(float (*distanceFunc)(float, float), double *t, double *q, int j, int len, double mean, double std, double bsf = INF)
 {
     /// 1 point at front and back
     double d, lb;
     double x0 = (t[j] - mean) / std;
     double y0 = (t[(len-1+j)] - mean) / std;
-    lb = dist(x0,q[0]) + dist(y0,q[len-1]);
+    lb = distanceFunc(x0,q[0]) + distanceFunc(y0,q[len-1]);
     if (lb >= bsf)   return lb;
 
     /// 2 points at front
     double x1 = (t[(j+1)] - mean) / std;
-    d = min(dist(x1,q[0]), dist(x0,q[1]));
-    d = min(d, dist(x1,q[1]));
+    d = min(distanceFunc(x1,q[0]), distanceFunc(x0,q[1]));
+    d = min(d, distanceFunc(x1,q[1]));
     lb += d;
     if (lb >= bsf)   return lb;
 
     /// 2 points at back
     double y1 = (t[(len-2+j)] - mean) / std;
-    d = min(dist(y1,q[len-1]), dist(y0, q[len-2]) );
-    d = min(d, dist(y1,q[len-2]));
+    d = min(distanceFunc(y1,q[len-1]), distanceFunc(y0, q[len-2]) );
+    d = min(d, distanceFunc(y1,q[len-2]));
     lb += d;
     if (lb >= bsf)   return lb;
 
     /// 3 points at front
     double x2 = (t[(j+2)] - mean) / std;
-    d = min(dist(x0,q[2]), dist(x1, q[2]));
-    d = min(d, dist(x2,q[2]));
-    d = min(d, dist(x2,q[1]));
-    d = min(d, dist(x2,q[0]));
+    d = min(distanceFunc(x0,q[2]), distanceFunc(x1, q[2]));
+    d = min(d, distanceFunc(x2,q[2]));
+    d = min(d, distanceFunc(x2,q[1]));
+    d = min(d, distanceFunc(x2,q[0]));
     lb += d;
     if (lb >= bsf)   return lb;
 
     /// 3 points at back
     double y2 = (t[(len-3+j)] - mean) / std;
-    d = min(dist(y0,q[len-3]), dist(y1, q[len-3]));
-    d = min(d, dist(y2,q[len-3]));
-    d = min(d, dist(y2,q[len-2]));
-    d = min(d, dist(y2,q[len-1]));
+    d = min(distanceFunc(y0,q[len-3]), distanceFunc(y1, q[len-3]));
+    d = min(d, distanceFunc(y2,q[len-3]));
+    d = min(d, distanceFunc(y2,q[len-2]));
+    d = min(d, distanceFunc(y2,q[len-1]));
     lb += d;
 
     return lb;
@@ -211,7 +226,7 @@ double SubsequenceFinder::lb_kim_hierarchy(double *t, double *q, int j, int len,
 /// t     : a circular array keeping the current data.
 /// j     : index of the starting location in t
 /// cb    : (output) current bound at each position. It will be used later for early abandoning in DTW.
-double SubsequenceFinder::lb_keogh_cumulative(int* order, double *t, double *uo, double *lo, double *cb, int j, int len, double mean, double std, double best_so_far = INF)
+double SubsequenceFinder::lb_keogh_cumulative(float (*distanceFunc)(float, float), int* order, double *t, double *uo, double *lo, double *cb, int j, int len, double mean, double std, double best_so_far = INF)
 {
     double lb = 0;
     double x, d;
@@ -221,9 +236,9 @@ double SubsequenceFinder::lb_keogh_cumulative(int* order, double *t, double *uo,
         x = (t[(order[i]+j)] - mean) / std;
         d = 0;
         if (x > uo[i])
-            d = dist(x,uo[i]);
+            d = distanceFunc(x,uo[i]);
         else if(x < lo[i])
-            d = dist(x,lo[i]);
+            d = distanceFunc(x,lo[i]);
         lb += d;
         cb[order[i]] = d;
     }
@@ -238,7 +253,7 @@ double SubsequenceFinder::lb_keogh_cumulative(int* order, double *t, double *uo,
 /// qo: sorted query
 /// cb: (output) current bound at each position. Used later for early abandoning in DTW.
 /// l,u: lower and upper envelop of the current data
-double SubsequenceFinder::lb_keogh_data_cumulative(int* order, double *tz, double *qo, double *cb, double *l, double *u, int len, double mean, double std, double best_so_far = INF)
+double SubsequenceFinder::lb_keogh_data_cumulative(float (*distanceFunc)(float, float), int* order, double *tz, double *qo, double *cb, double *l, double *u, int len, double mean, double std, double best_so_far = INF)
 {
     double lb = 0;
     double uu,ll,d;
@@ -249,10 +264,10 @@ double SubsequenceFinder::lb_keogh_data_cumulative(int* order, double *tz, doubl
         ll = (l[order[i]]-mean)/std;
         d = 0;
         if (qo[i] > uu)
-            d = dist(qo[i], uu);
+            d = distanceFunc(qo[i], uu);
         else
         {   if(qo[i] < ll)
-            d = dist(qo[i], ll);
+            d = distanceFunc(qo[i], ll);
         }
         lb += d;
         cb[order[i]] = d;
@@ -265,7 +280,7 @@ double SubsequenceFinder::lb_keogh_data_cumulative(int* order, double *tz, doubl
 /// A,B: data and query, respectively
 /// cb : cummulative bound used for early abandoning
 /// r  : size of Sakoe-Chiba warpping band
-double SubsequenceFinder::dtw(double* A, double* B, double *cb, int m, int r, double bsf = INF)
+double SubsequenceFinder::dtw(float (*distanceFunc)(float, float), double* A, double* B, double *cb, int m, int r, double bsf = INF )
 {
 
     double *cost;
@@ -291,7 +306,7 @@ double SubsequenceFinder::dtw(double* A, double* B, double *cb, int m, int r, do
             /// Initialize all row and column
             if ((i==0)&&(j==0))
             {
-                cost[k]=dist(A[0],B[0]);
+                cost[k]=distanceFunc(A[0],B[0]);
                 min_cost = cost[k];
                 continue;
             }
@@ -304,7 +319,7 @@ double SubsequenceFinder::dtw(double* A, double* B, double *cb, int m, int r, do
             else                      z = cost_prev[k];
 
             /// Classic DTW calculation
-            cost[k] = min( min( x, y) , z) + dist(A[i],B[j]);
+            cost[k] = min( min( x, y) , z) + distanceFunc(A[i],B[j]);
 
             /// Find minimum cost in row for early abandoning (possibly to use column instead of row).
             if (cost[k] < min_cost)
@@ -362,8 +377,21 @@ void SubsequenceFinder::error(int id)
 
 
 // this is replacing the functionality of main() in UCR
-void SubsequenceFinder::search(float* query, int queryLength, float* data, int dataLength, float errorLimit, float sizeOfWarpingWindows)
+void SubsequenceFinder::search(float* query, int queryLength, float* data, int dataLength, float errorLimit, float sizeOfWarpingWindows, char* distanceMethod)
 {
+
+	float (*distanceFunc)(float, float);
+	if (strcmp(distanceMethod, "Euclidean") == 0)
+		distanceFunc = dist_Euclidean;
+	else if (strcmp(distanceMethod, "Corr") == 0)
+		distanceFunc = dist_Correlation;
+	else
+	{
+		printf("Invalid distance function\n");
+		return;
+	}
+
+
 
 	double bsf;          /// best-so-far
 	double *t, *q;       /// data array and query array
@@ -613,13 +641,13 @@ void SubsequenceFinder::search(float* query, int queryLength, float* data, int d
 					I = i-(m-1);
 
 					/// Use a constant lower bound to prune the obvious subsequence
-					lb_kim = lb_kim_hierarchy(t, q, j, m, mean, std, bsf);
+					lb_kim = lb_kim_hierarchy(distanceFunc, t, q, j, m, mean, std, bsf);
 
 					if (lb_kim < bsf)
 					{
 						/// Use a linear time lower bound to prune; z_normalization of t will be computed on the fly.
 						/// uo, lo are envelop of the query.
-						lb_k = lb_keogh_cumulative(order, t, uo, lo, cb1, j, m, mean, std, bsf);
+						lb_k = lb_keogh_cumulative(distanceFunc, order, t, uo, lo, cb1, j, m, mean, std, bsf);
 						if (lb_k < bsf)
 						{
 							/// Take another linear time to compute z_normalization of t.
@@ -631,7 +659,7 @@ void SubsequenceFinder::search(float* query, int queryLength, float* data, int d
 							/// Use another lb_keogh to prune
 							/// qo is the sorted query. tz is unsorted z_normalized data.
 							/// l_buff, u_buff are big envelop for all data in this chunk
-							lb_k2 = lb_keogh_data_cumulative(order, tz, qo, cb2, l_buff+I, u_buff+I, m, mean, std, bsf);
+							lb_k2 = lb_keogh_data_cumulative(distanceFunc, order, tz, qo, cb2, l_buff+I, u_buff+I, m, mean, std, bsf);
 							if (lb_k2 < bsf)
 							{
 								/// Choose better lower bound between lb_keogh and lb_keogh2 to be used in early abandoning DTW
@@ -650,7 +678,7 @@ void SubsequenceFinder::search(float* query, int queryLength, float* data, int d
 								}
 
 								/// Compute DTW and early abandoning if possible
-								dist = dtw(tz, q, cb, m, r, bsf);
+								dist = dtw(distanceFunc, tz, q, cb, m, r, bsf);
 
 								if( dist < bsf )
 								{   /// Update bsf
